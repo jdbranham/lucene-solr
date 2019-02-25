@@ -48,8 +48,7 @@ public class TestBKDRadixSelector extends LuceneTestCase {
     NumericUtils.intToSortableBytes(4, bytes, 0);
     points.append(bytes, 3);
     points.close();
-    PointWriter copy = copyPoints(dir,points, packedLength);
-    verify(dir, copy, dimensions, 0, values, middle, packedLength, bytesPerDimensions, 0);
+    verify(dir, points, dimensions, 0, values, middle, packedLength, bytesPerDimensions, 0);
     dir.close();
   }
 
@@ -184,31 +183,24 @@ public class TestBKDRadixSelector extends LuceneTestCase {
   private void verify(Directory dir, PointWriter points, int dimensions, long start, long end, long middle, int packedLength, int bytesPerDimensions, int sortedOnHeap) throws IOException{
     for (int splitDim =0; splitDim < dimensions; splitDim++) {
       PointWriter copy = copyPoints(dir, points, packedLength);
-      BKDRadixSelector.PathSlice[] slices = new BKDRadixSelector.PathSlice[2];
+      PointWriter leftPointWriter = getRandomPointWriter(dir, middle - start, packedLength);
+      PointWriter rightPointWriter = getRandomPointWriter(dir, end - middle, packedLength);
       BKDRadixSelector radixSelector = new BKDRadixSelector(dimensions, bytesPerDimensions, sortedOnHeap, dir, "test");
-      BKDRadixSelector.PathSlice copySlice = new BKDRadixSelector.PathSlice(copy, 0, copy.count());
-      byte[] pointsMax = getMax(copySlice, bytesPerDimensions, splitDim);
-      byte[] pointsMin = getMin(copySlice, bytesPerDimensions, splitDim);
-      int commonPrefixLength = FutureArrays.mismatch(pointsMin, 0, bytesPerDimensions, pointsMax, 0, bytesPerDimensions);
-      if (commonPrefixLength == -1) {
-        commonPrefixLength = bytesPerDimensions;
-      }
-      int commonPrefixLengthInput = (random().nextBoolean()) ? commonPrefixLength : commonPrefixLength == 0 ? 0 : random().nextInt(commonPrefixLength);
-      byte[] partitionPoint = radixSelector.select(copySlice, slices, start, end, middle, splitDim, commonPrefixLengthInput);
-      assertEquals(middle - start, slices[0].count);
-      assertEquals(end - middle, slices[1].count);
-      byte[] max = getMax(slices[0], bytesPerDimensions, splitDim);
-      byte[] min = getMin(slices[1], bytesPerDimensions, splitDim);
+      byte[] partitionPoint = radixSelector.select(copy, leftPointWriter, rightPointWriter, start, end, middle, splitDim);
+      leftPointWriter.close();
+      rightPointWriter.close();
+      byte[] max = getMax(leftPointWriter, middle - start, bytesPerDimensions, splitDim);
+      byte[] min = getMin(rightPointWriter, end - middle, bytesPerDimensions, splitDim);
       int cmp = FutureArrays.compareUnsigned(max, 0, bytesPerDimensions, min, 0, bytesPerDimensions);
       assertTrue(cmp <= 0);
       if (cmp == 0) {
-        int maxDocID = getMaxDocId(slices[0], bytesPerDimensions, splitDim, partitionPoint);
-        int minDocId = getMinDocId(slices[1], bytesPerDimensions, splitDim, partitionPoint);
+        int maxDocID = getMaxDocId(leftPointWriter, middle - start, bytesPerDimensions, splitDim, partitionPoint);
+        int minDocId = getMinDocId(rightPointWriter, end - middle, bytesPerDimensions, splitDim, partitionPoint);
         assertTrue(minDocId >= maxDocID);
       }
       assertTrue(Arrays.equals(partitionPoint, min));
-      slices[0].writer.destroy();
-      slices[1].writer.destroy();
+      leftPointWriter.destroy();
+      rightPointWriter.destroy();
     }
     points.destroy();
   }
@@ -244,10 +236,10 @@ public class TestBKDRadixSelector extends LuceneTestCase {
     return dir;
   }
 
-  private byte[] getMin(BKDRadixSelector.PathSlice p, int bytesPerDimension, int dimension) throws  IOException {
+  private byte[] getMin(PointWriter p, long size, int bytesPerDimension, int dimension) throws  IOException {
     byte[] min = new byte[bytesPerDimension];
     Arrays.fill(min, (byte) 0xff);
-    try (PointReader reader = p.writer.getReader(p.start, p.count)) {
+    try (PointReader reader = p.getReader(0, size)) {
       byte[] value = new byte[bytesPerDimension];
       BytesRef packedValue = new BytesRef();
       while (reader.next()) {
@@ -261,9 +253,9 @@ public class TestBKDRadixSelector extends LuceneTestCase {
     return min;
   }
 
-  private int getMinDocId(BKDRadixSelector.PathSlice p, int bytesPerDimension, int dimension, byte[] partitionPoint) throws  IOException {
+  private int getMinDocId(PointWriter p, long size, int bytesPerDimension, int dimension, byte[] partitionPoint) throws  IOException {
    int docID = Integer.MAX_VALUE;
-    try (PointReader reader = p.writer.getReader(p.start, p.count)) {
+    try (PointReader reader = p.getReader(0, size)) {
       BytesRef packedValue = new BytesRef();
       while (reader.next()) {
         reader.packedValue(packedValue);
@@ -279,10 +271,10 @@ public class TestBKDRadixSelector extends LuceneTestCase {
     return docID;
   }
 
-  private byte[] getMax(BKDRadixSelector.PathSlice p, int bytesPerDimension, int dimension) throws  IOException {
+  private byte[] getMax(PointWriter p, long size, int bytesPerDimension, int dimension) throws  IOException {
     byte[] max = new byte[bytesPerDimension];
     Arrays.fill(max, (byte) 0);
-    try (PointReader reader = p.writer.getReader(p.start, p.count)) {
+    try (PointReader reader = p.getReader(0, size)) {
       byte[] value = new byte[bytesPerDimension];
       BytesRef packedValue = new BytesRef();
       while (reader.next()) {
@@ -296,9 +288,9 @@ public class TestBKDRadixSelector extends LuceneTestCase {
     return max;
   }
 
-  private int getMaxDocId(BKDRadixSelector.PathSlice p, int bytesPerDimension, int dimension, byte[] partitionPoint) throws  IOException {
+  private int getMaxDocId(PointWriter p, long size, int bytesPerDimension, int dimension, byte[] partitionPoint) throws  IOException {
     int docID = Integer.MIN_VALUE;
-    try (PointReader reader = p.writer.getReader(p.start, p.count)) {
+    try (PointReader reader = p.getReader(0, size)) {
       BytesRef packedValue = new BytesRef();
       while (reader.next()) {
         reader.packedValue(packedValue);
