@@ -684,7 +684,7 @@ public class OverseerCollectionMessageHandler implements OverseerMessageHandler,
         if (!updateKey.equals(ZkStateReader.COLLECTION_PROP)
             && !updateKey.equals(Overseer.QUEUE_OPERATION)
             && updateEntry.getValue() != null // handled below in a separate conditional
-            && !updateEntry.getValue().equals(collection.get(updateKey))) {
+            && !collection.get(updateKey).equals(updateEntry.getValue())){
           areChangesVisible = false;
           break;
         }
