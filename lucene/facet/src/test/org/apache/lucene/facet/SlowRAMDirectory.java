@@ -19,18 +19,17 @@ package org.apache.lucene.facet;
 import java.io.IOException;
 import java.util.Random;
 
-import org.apache.lucene.store.ByteBuffersDirectory;
-import org.apache.lucene.store.FilterDirectory;
 import org.apache.lucene.store.IOContext;
 import org.apache.lucene.store.IndexInput;
 import org.apache.lucene.store.IndexOutput;
+import org.apache.lucene.store.RAMDirectory;
 import org.apache.lucene.util.ThreadInterruptedException;
 
 /**
  * Test utility - slow directory
  */
 // TODO: move to test-framework and sometimes use in tests?
-public class SlowDirectory extends FilterDirectory {
+public class SlowRAMDirectory extends RAMDirectory {
 
   private static final int IO_SLEEP_THRESHOLD = 50;
   
@@ -41,8 +40,7 @@ public class SlowDirectory extends FilterDirectory {
     this.sleepMillis = sleepMillis;
   }
   
-  public SlowDirectory(int sleepMillis, Random random) {
-    super(new ByteBuffersDirectory());
+  public SlowRAMDirectory(int sleepMillis, Random random) {
     this.sleepMillis = sleepMillis;
     this.random = random;
   }
