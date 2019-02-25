@@ -16,7 +16,7 @@
  */
 package org.apache.solr.cloud;
 
-import org.apache.lucene.util.TestUtil;
+import org.apache.lucene.util.LuceneTestCase.Slow;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
 import org.junit.BeforeClass;
@@ -29,13 +29,15 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
 
+
+@Slow
 public class TriLevelCompositeIdRoutingTest extends ShardRoutingTest {
 
   private static final Logger log = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-  final int NUM_APPS;
-  final int NUM_USERS;
-  final int NUM_DOCS;
+  int NUM_APPS = 5;
+  int NUM_USERS = 10;
+  int NUM_DOCS = 100;
 
 
   @BeforeClass
@@ -50,18 +52,12 @@ public class TriLevelCompositeIdRoutingTest extends ShardRoutingTest {
 
   public TriLevelCompositeIdRoutingTest() {
     schemaString = "schema15.xml";      // we need a string id
-    
-    
-    sliceCount = TestUtil.nextInt(random(), 1, (TEST_NIGHTLY ? 5 : 3)); // this is the number of *SHARDS*
-    int replicationFactor = rarely() ? 2 : 1; // replication is not the focus of this test
-    fixShardCount(replicationFactor * sliceCount); // total num cores, one per node
-    
-    NUM_APPS = atLeast(5);
-    NUM_USERS = atLeast(10);
-    NUM_DOCS = atLeast(100);
+    sliceCount = TEST_NIGHTLY ? 12 : 2;             // a lot of slices for more ranges and buckets
+    fixShardCount(TEST_NIGHTLY ? 24 : 3);
   }
 
   @Test
+  @BadApple(bugUrl="https://issues.apache.org/jira/browse/SOLR-12028") // annotated on: 24-Dec-2018
   public void test() throws Exception {
     boolean testFinished = false;
     try {
@@ -72,8 +68,6 @@ public class TriLevelCompositeIdRoutingTest extends ShardRoutingTest {
       waitForRecoveriesToFinish(true);
 
       doTriLevelHashingTest();
-      del("*:*");
-      commit();
       doTriLevelHashingTestWithBitMask();
 
       testFinished = true;
@@ -104,7 +98,7 @@ public class TriLevelCompositeIdRoutingTest extends ShardRoutingTest {
 
     for (int i = 1; i <= sliceCount; i++) {
 
-      Set<String> ids = doQueryGetUniqueIdKeys("q", "*:*", "rows", ""+NUM_DOCS, "shards", "shard" + i);
+      Set<String> ids = doQueryGetUniqueIdKeys("q", "*:*", "shards", "shard" + i);
       for (String id : ids) {
         assertFalse("Found the same route key [" + id + "] in 2 shards.", idMap.containsKey(id));
         idMap.put(getKey(id), i);
@@ -118,6 +112,7 @@ public class TriLevelCompositeIdRoutingTest extends ShardRoutingTest {
     log.info("### STARTING doTriLevelHashingTestWithBitMask");
     // for now,  we know how ranges will be distributed to shards.
     // may have to look it up in clusterstate if that assumption changes.
+    del("*:*");
 
     for (int i = 0; i < NUM_DOCS; i++) {
       int appId = r.nextInt(NUM_APPS) + 1;
@@ -135,7 +130,7 @@ public class TriLevelCompositeIdRoutingTest extends ShardRoutingTest {
 
     for (int i = 1; i <= sliceCount; i++) {
 
-      Set<String> ids = doQueryGetUniqueIdKeys("q", "*:*", "rows", ""+NUM_DOCS, "shards", "shard" + i);
+      Set<String> ids = doQueryGetUniqueIdKeys("q", "*:*", "shards", "shard" + i);
       for (String id : ids) {
         assertFalse("Found the same route key [" + id + "] in 2 shards.", idMap.containsKey(id));
         idMap.put(getKey(id), i);
