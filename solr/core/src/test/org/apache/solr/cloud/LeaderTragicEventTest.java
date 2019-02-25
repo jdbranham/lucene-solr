@@ -23,7 +23,6 @@ import static org.hamcrest.CoreMatchers.is;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.invoke.MethodHandles;
-import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -133,7 +132,7 @@ public class LeaderTragicEventTest extends SolrCloudTestCase {
 
           try {
             mockDir.corruptFiles(Collections.singleton(file));
-          } catch (RuntimeException | FileNotFoundException | NoSuchFileException e) {
+          } catch (RuntimeException | FileNotFoundException e) {
             // merges can lead to this exception
           }
         }
