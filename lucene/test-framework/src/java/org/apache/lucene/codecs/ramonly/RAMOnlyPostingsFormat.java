@@ -34,7 +34,6 @@ import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.NormsProducer;
 import org.apache.lucene.codecs.PostingsFormat;
 import org.apache.lucene.codecs.TermStats;
-import org.apache.lucene.index.BaseTermsEnum;
 import org.apache.lucene.index.PostingsEnum;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.Fields;
@@ -404,7 +403,7 @@ public final class RAMOnlyPostingsFormat extends PostingsFormat {
     }
   }
 
-  static class RAMTermsEnum extends BaseTermsEnum {
+  static class RAMTermsEnum extends TermsEnum {
     Iterator<String> it;
     String current;
     private final RAMField ramField;
@@ -444,7 +443,7 @@ public final class RAMOnlyPostingsFormat extends PostingsFormat {
         }
       }
     }
-    
+
     @Override
     public void seekExact(long ord) {
       throw new UnsupportedOperationException();

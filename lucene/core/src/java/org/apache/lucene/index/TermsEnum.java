@@ -42,16 +42,21 @@ import org.apache.lucene.util.BytesRefIterator;
  * @lucene.experimental */
 public abstract class TermsEnum implements BytesRefIterator {
 
+  private AttributeSource atts = null;
+
   /** Sole constructor. (For invocation by subclass 
    *  constructors, typically implicit.) */
   protected TermsEnum() {
   }
 
   /** Returns the related attributes. */
-  public abstract AttributeSource attributes();
+  public AttributeSource attributes() {
+    if (atts == null) atts = new AttributeSource();
+    return atts;
+  }
   
   /** Represents returned result from {@link #seekCeil}. */
-  public enum SeekStatus {
+  public static enum SeekStatus {
     /** The term was not found, and the end of iteration was hit. */
     END,
     /** The precise term was found. */
@@ -60,15 +65,13 @@ public abstract class TermsEnum implements BytesRefIterator {
     NOT_FOUND
   };
 
-  /**
-   * Attempts to seek to the exact term, returning true if the term is found. If this returns false, the enum is
-   * unpositioned. For some codecs, seekExact may be substantially faster than {@link #seekCeil}.
-   * <p>
-   * 
-   *
-   * @return true if the term is found; return false if the enum is unpositioned.
-   */
-  public abstract boolean seekExact(BytesRef text) throws IOException;
+  /** Attempts to seek to the exact term, returning
+   *  true if the term is found.  If this returns false, the
+   *  enum is unpositioned.  For some codecs, seekExact may
+   *  be substantially faster than {@link #seekCeil}. */
+  public boolean seekExact(BytesRef text) throws IOException {
+    return seekCeil(text) == SeekStatus.FOUND;
+  }
 
   /** Seeks to the specified term, if it exists, or to the
    *  next (ceiling) term.  Returns SeekStatus to
@@ -105,7 +108,11 @@ public abstract class TermsEnum implements BytesRefIterator {
    * @param term the term the TermState corresponds to
    * @param state the {@link TermState}
    * */
-  public abstract void seekExact(BytesRef term, TermState state) throws IOException;
+  public void seekExact(BytesRef term, TermState state) throws IOException {
+    if (!seekExact(term)) {
+      throw new IllegalArgumentException("term=" + term + " does not exist");
+    }
+  }
 
   /** Returns current term. Do not call this when the enum
    *  is unpositioned. */
@@ -179,7 +186,14 @@ public abstract class TermsEnum implements BytesRefIterator {
    * @see TermState
    * @see #seekExact(BytesRef, TermState)
    */
-  public abstract TermState termState() throws IOException;
+  public TermState termState() throws IOException {
+    return new TermState() {
+      @Override
+      public void copyFrom(TermState other) {
+        throw new UnsupportedOperationException();
+      }
+    };
+  }
 
   /** An empty TermsEnum for quickly returning an empty instance e.g.
    * in {@link org.apache.lucene.search.MultiTermQuery}
@@ -188,7 +202,7 @@ public abstract class TermsEnum implements BytesRefIterator {
    * This should not be a problem, as the enum is always empty and
    * the existence of unused Attributes does not matter.
    */
-  public static final TermsEnum EMPTY = new BaseTermsEnum() {
+  public static final TermsEnum EMPTY = new TermsEnum() {    
     @Override
     public SeekStatus seekCeil(BytesRef term) { return SeekStatus.END; }
     

@@ -4,42 +4,11 @@ For more information on past and future Lucene versions, please see:
 http://s.apache.org/luceneversions
 
 ======================= Lucene 9.0.0 =======================
-
-API Changes
-
-* LUCENE-8474: RAMDirectory and associated deprecated classes have been 
-  removed. (Dawid Weiss)
-
-Bug fixes:
-
-* LUCENE-8663: NRTCachingDirectory.slowFileExists may open a file while 
-  it's inaccessible. (Dawid Weiss)
-
-======================= Lucene 8.1.0 =======================
-
-Improvements
-
-* LUCENE-8673: Use radix partitioning when merging dimensional points instead
-  of sorting all dimensions before hand. (Ignacio Vera, Adrien Grand)
-
-* LUCENE-8687: Optimise radix partitioning for points on heap. (Ignacio Vera)
-
-* LUCENE-8699: Change HeapPointWriter to use a single byte array instead to a list
-  of byte arrays. In addition a new interface PointValue is added to abstract out
-  the different formats between offline and on-heap writers. (Ignacio Vera)
-
-Other
-
-* LUCENE-8680: Refactor EdgeTree#relateTriangle method. (Ignacio Vera)
-
-* LUCENE-8685: Refactor LatLonShape tests. (Ignacio Vera)
+(No Changes)
 
 ======================= Lucene 8.0.0 =======================
 
 API Changes
-
-* LUCENE-8662: TermsEnum.seekExact(BytesRef) to abstract and delegate seekExact(BytesRef)
-  in FilterLeafReader.FilterTermsEnum. (Jeffery Yuan via Tomás Fernández Löbbe, Simon Willnauer)
 
 * LUCENE-8469: Deprecated StringHelper.compare has been removed. (Dawid Weiss)
 
@@ -139,8 +108,6 @@ API Changes
 * LUCENE-8609: Remove IndexWriter#numDocs() and IndexWriter#maxDoc() in favor
   of IndexWriter#getDocStats(). (Simon Willnauer)
 
-* LUCENE-8292: Make TermsEnum fully abstract. (Simon Willnauer)
-
 Changes in Runtime Behavior
 
 * LUCENE-8333: Switch MoreLikeThis.setMaxDocFreqPct to use maxDoc instead of
@@ -193,15 +160,9 @@ Changes in Runtime Behavior
   is instead calculated as a function of the sloppy frequency of the matching
   intervals. (Alan Woodward, Jim Ferenczi)
 
-* LUCENE-8635: FSTs can now remain off-heap, accessed via
-  IndexInput, and the default codec's term dictionary
-  (BlockTreeTermsReader) will now leave the FST for the terms index
-  off-heap for non-primary-key fields using MMapDirectory, reducing
-  heap usage for such fields. (Ankit Jain)
-
 New Features
 
-* LUCENE-8340: LongPoint#newDistanceFeatureQuery may be used to boost scores based on
+* LUCENE-8340: LongPoint#newDistanceQuery may be used to boost scores based on
   how close a value of a long field is from an configurable origin. This is
   typically useful to boost by recency. (Adrien Grand)
 
@@ -232,15 +193,6 @@ New Features
 * LUCENE-8646: New interval functions: Intervals.prefix() and Intervals.wildcard()
   (Alan Woodward)
 
-* LUCENE-8655: Add a getter in FunctionScoreQuery class in order to access to the 
-  underlying DoubleValuesSource. (Gérald Quaire via Alan Woodward)
-
-* LUCENE-8697: GraphTokenStreamFiniteStrings correctly handles side paths 
-  containing gaps (Alan Woodward)
-
-* LUCENE-8702: Simplify intervals returned from vararg Intervals factory methods
-  (Alan Woodward)
-
 Improvements
 
 * LUCENE-7997: Add BaseSimilarityTestCase to sanity check similarities.
@@ -258,9 +210,6 @@ Improvements
   order to speed up selection of top scored documents. (Adrien Grand)
 
 * LUCENE-8279: CheckIndex now cross-checks terms with norms. (Adrien Grand)
-
-* LUCENE-8660: TopDocsCollectors now return an accurate count (instead of a lower bound)
-  if the total hit count is equal to the provided threshold. (Adrien Grand, Jim Ferenczi)
 
 Optimizations
 
@@ -319,9 +268,6 @@ Build
 
 Bug fixes:
 
-* LUCENE-8669: Fix LatLonShape WITHIN queries that fail with Multiple search Polygons
-  that share the dateline. (Nick Knize)
-
 * LUCENE-8603: Fix the inversion of right ids for additional nouns in the Korean user dictionary.
   (Yoo Jeongin via Jim Ferenczi)
 
@@ -336,16 +282,6 @@ Bug fixes:
 
 * LUCENE-8649: LatLonShape's within and disjoint queries can return false positives with
   indexed multi-shapes. (Ignacio Vera)
-
-* LUCENE-8654: Polygon2D#relateTriangle returns the wrong answer if polygon is inside
-  the triangle. (Ignacio Vera)
-
-* LUCENE-8650: ConcatenatingTokenStream did not correctly clear its state in reset(), and
-  was not propagating final position increments from its child streams correctly.
-  (Dan Meehl, Alan Woodward)
-
-* LUCENE-8676: The Korean tokenizer does not update the last position if the backtrace is caused
-  by a big buffer (1024 chars). (Jim Ferenczi)
 
 New Features
 
@@ -384,8 +320,6 @@ Improvements
   
 * LUCENE-8527: Upgrade JFlex dependency to 1.7.0; in StandardTokenizer and UAX29URLEmailTokenizer,
   increase supported Unicode version from 6.3 to 9.0, and support Unicode UTS#51 v11.0 Emoji tokenization.
-
-* LUCENE-8640: Date Range format validation (Lucky Sharma, David Smiley via Mikhail Khludnev)
 
 Optimizations
 

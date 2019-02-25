@@ -385,16 +385,20 @@ public class TestTopDocsMerge extends LuceneTestCase {
     TopDocs topDocs4 = new TopDocs(new TotalHits(3, TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO), new ScoreDoc[] { new ScoreDoc(42, 2f) });
 
     TopDocs merged1 = TopDocs.merge(1, new TopDocs[] {topDocs1, topDocs2});
-    assertEquals(new TotalHits(3, TotalHits.Relation.EQUAL_TO), merged1.totalHits);
+    assertEquals(3, merged1.totalHits.value);
+    assertEquals(TotalHits.Relation.EQUAL_TO, merged1.totalHits.relation);
 
     TopDocs merged2 = TopDocs.merge(1, new TopDocs[] {topDocs1, topDocs3});
-    assertEquals(new TotalHits(3, TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO), merged2.totalHits);
+    assertEquals(3, merged2.totalHits.value);
+    assertEquals(TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO, merged2.totalHits.relation);
 
     TopDocs merged3 = TopDocs.merge(1, new TopDocs[] {topDocs3, topDocs4});
-    assertEquals(new TotalHits(4, TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO), merged3.totalHits);
+    assertEquals(4, merged3.totalHits.value);
+    assertEquals(TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO, merged3.totalHits.relation);
 
     TopDocs merged4 = TopDocs.merge(1, new TopDocs[] {topDocs4, topDocs2});
-    assertEquals(new TotalHits(4, TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO), merged4.totalHits);
+    assertEquals(4, merged4.totalHits.value);
+    assertEquals(TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO, merged4.totalHits.relation);
   }
 
 }

@@ -254,15 +254,13 @@ final class IndexedDISI extends DocIdSetIterator {
     return (short)blockCount;
   }
 
-  // Members are pkg-private to avoid synthetic accessors when accessed from the `Method` enum
-
   /** The slice that stores the {@link DocIdSetIterator}. */
-  final IndexInput slice;
-  final int jumpTableEntryCount;
-  final byte denseRankPower;
-  final RandomAccessInput jumpTable; // Skip blocks of 64K bits
-  final byte[] denseRankTable;
-  final long cost;
+  private final IndexInput slice;
+  private final int jumpTableEntryCount;
+  private final byte denseRankPower;
+  private final RandomAccessInput jumpTable; // Skip blocks of 64K bits
+  private final byte[] denseRankTable;
+  private final long cost;
 
   /**
    * This constructor always creates a new blockSlice and a new jumpTable from in, to ensure that operations are
@@ -346,28 +344,28 @@ final class IndexedDISI extends DocIdSetIterator {
     }
   }
 
-  int block = -1;
-  long blockEnd;
-  long denseBitmapOffset = -1; // Only used for DENSE blocks
-  int nextBlockIndex = -1;
+  private int block = -1;
+  private long blockEnd;
+  private long denseBitmapOffset = -1; // Only used for DENSE blocks
+  private int nextBlockIndex = -1;
   Method method;
 
-  int doc = -1;
-  int index = -1;
+  private int doc = -1;
+  private int index = -1;
 
   // SPARSE variables
-  boolean exists;
+  private boolean exists;
 
   // DENSE variables
-  long word;
-  int wordIndex = -1;
+  private long word;
+  private int wordIndex = -1;
   // number of one bits encountered so far, including those of `word`
-  int numberOfOnes;
+  private int numberOfOnes;
   // Used with rank for jumps inside of DENSE as they are absolute instead of relative
-  int denseOrigoIndex;
+  private int denseOrigoIndex;
 
   // ALL variables
-  int gap;
+  private int gap;
 
   @Override
   public int docID() {
@@ -516,11 +514,7 @@ final class IndexedDISI extends DocIdSetIterator {
         final int targetWordIndex = targetInBlock >>> 6;
 
         // If possible, skip ahead using the rank cache
-        // If the distance between the current position and the target is < rank-longs
-        // there is no sense in using rank
-        if (disi.denseRankPower != -1 && targetWordIndex - disi.wordIndex >= (1 << (disi.denseRankPower-6) )) {
-          rankSkip(disi, targetInBlock);
-        }
+        rankSkip(disi, target);
 
         for (int i = disi.wordIndex + 1; i <= targetWordIndex; ++i) {
           disi.word = disi.slice.readLong();
@@ -556,12 +550,7 @@ final class IndexedDISI extends DocIdSetIterator {
         final int targetInBlock = target & 0xFFFF;
         final int targetWordIndex = targetInBlock >>> 6;
 
-        // If possible, skip ahead using the rank cache
-        // If the distance between the current position and the target is < rank-longs
-        // there is no sense in using rank
-        if (disi.denseRankPower != -1 && targetWordIndex - disi.wordIndex >= (1 << (disi.denseRankPower-6) )) {
-          rankSkip(disi, targetInBlock);
-        }
+        rankSkip(disi, target);
 
         for (int i = disi.wordIndex + 1; i <= targetWordIndex; ++i) {
           disi.word = disi.slice.readLong();
@@ -605,11 +594,23 @@ final class IndexedDISI extends DocIdSetIterator {
    * Note: This does not guarantee a skip up to target, only up to nearest rank boundary. It is the
    * responsibility of the caller to iterate further to reach target.
    * @param disi standard DISI.
-   * @param targetInBlock lower 16 bits of the target
+   * @param target the wanted docID for which to calculate set-flag and index.
    * @throws IOException if a DISI seek failed.
    */
-  private static void rankSkip(IndexedDISI disi, int targetInBlock) throws IOException {
-    assert disi.denseRankPower >= 0 : disi.denseRankPower;
+  private static void rankSkip(IndexedDISI disi, int target) throws IOException {
+    if (disi.denseRankPower == -1) { // No rank for the current structure
+      return;
+    }
+
+    final int targetInBlock = target & 0xFFFF;       // Lower 16 bits
+    final int targetWordIndex = targetInBlock >>> 6; // long: 2^6 = 64
+
+    // If the distance between the current position and the target is < rank-longs
+    // there is no sense in using rank
+    if (targetWordIndex - disi.wordIndex < (1 << (disi.denseRankPower-6) )) {
+      return;
+    }
+
     // Resolve the rank as close to targetInBlock as possible (maximum distance is 8 longs)
     // Note: rankOrigoOffset is tracked on block open, so it is absolute (e.g. don't add origo)
     final int rankIndex = targetInBlock >> disi.denseRankPower; // Default is 9 (8 longs: 2^3 * 2^6 = 512 docIDs)

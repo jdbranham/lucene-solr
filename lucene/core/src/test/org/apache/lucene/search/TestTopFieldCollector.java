@@ -148,7 +148,7 @@ public class TestTopFieldCollector extends LuceneTestCase {
     assertEquals(2, reader.leaves().size());
     w.close();
 
-    for (int totalHitsThreshold = 0; totalHitsThreshold < 20; ++ totalHitsThreshold) {
+    for (int totalHitsThreshold = 1; totalHitsThreshold < 20; ++ totalHitsThreshold) {
       for (FieldDoc after : new FieldDoc[] { null, new FieldDoc(4, Float.NaN, new Object[] { 2L })}) {
         TopFieldCollector collector = TopFieldCollector.create(sort, 2, after, totalHitsThreshold);
         ScoreAndDoc scorer = new ScoreAndDoc();
@@ -169,10 +169,11 @@ public class TestTopFieldCollector extends LuceneTestCase {
 
         scorer.doc = 1;
         scorer.score = 3;
-        if (totalHitsThreshold < 3) {
+        if (totalHitsThreshold < 4) {
           expectThrows(CollectionTerminatedException.class, () -> leafCollector2.collect(1));
           TopDocs topDocs = collector.topDocs();
-          assertEquals(new TotalHits(3, TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO), topDocs.totalHits);
+          assertEquals(TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO, topDocs.totalHits.relation);
+          assertEquals(3, topDocs.totalHits.value);
           continue;
         } else {
           leafCollector2.collect(1);
@@ -180,17 +181,19 @@ public class TestTopFieldCollector extends LuceneTestCase {
 
         scorer.doc = 5;
         scorer.score = 4;
-        if (totalHitsThreshold == 3) {
+        if (totalHitsThreshold == 4) {
           expectThrows(CollectionTerminatedException.class, () -> leafCollector2.collect(1));
           TopDocs topDocs = collector.topDocs();
-          assertEquals(new TotalHits(4, TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO), topDocs.totalHits);
+          assertEquals(TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO, topDocs.totalHits.relation);
+          assertEquals(4, topDocs.totalHits.value);
           continue;
         } else {
           leafCollector2.collect(1);
         }
 
         TopDocs topDocs = collector.topDocs();
-        assertEquals(new TotalHits(4, TotalHits.Relation.EQUAL_TO), topDocs.totalHits);
+        assertEquals(TotalHits.Relation.EQUAL_TO, topDocs.totalHits.relation);
+        assertEquals(4, topDocs.totalHits.value);
       }
     }
 
@@ -293,7 +296,7 @@ public class TestTopFieldCollector extends LuceneTestCase {
     assertEquals(2, reader.leaves().size());
     w.close();
 
-    for (int totalHitsThreshold = 0; totalHitsThreshold < 20; ++ totalHitsThreshold) {
+    for (int totalHitsThreshold = 1; totalHitsThreshold < 20; ++ totalHitsThreshold) {
       Sort sort = new Sort(FIELD_SCORE, new SortField("foo", SortField.Type.LONG));
       TopFieldCollector collector = TopFieldCollector.create(sort, 2, null, totalHitsThreshold);
       ScoreAndDoc scorer = new ScoreAndDoc();
@@ -321,8 +324,9 @@ public class TestTopFieldCollector extends LuceneTestCase {
       leafCollector.collect(1);
 
       TopDocs topDocs = collector.topDocs();
-      assertEquals(totalHitsThreshold < 4, scorer.minCompetitiveScore != null);
-      assertEquals(new TotalHits(4, totalHitsThreshold < 4 ? TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO : TotalHits.Relation.EQUAL_TO), topDocs.totalHits);
+      assertEquals(4, topDocs.totalHits.value);
+      assertEquals(totalHitsThreshold <= 4, scorer.minCompetitiveScore != null);
+      assertEquals(totalHitsThreshold <= 4 ? TotalHits.Relation.GREATER_THAN_OR_EQUAL_TO : TotalHits.Relation.EQUAL_TO, topDocs.totalHits.relation);
     }
 
     reader.close();

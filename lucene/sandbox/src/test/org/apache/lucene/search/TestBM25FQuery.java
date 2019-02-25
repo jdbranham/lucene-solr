@@ -99,7 +99,8 @@ public class TestBM25FQuery extends LuceneTestCase {
     TopScoreDocCollector collector = TopScoreDocCollector.create(Math.min(reader.numDocs(), Integer.MAX_VALUE), null, Integer.MAX_VALUE);
     searcher.search(query, collector);
     TopDocs topDocs = collector.topDocs();
-    assertEquals(new TotalHits(11, TotalHits.Relation.EQUAL_TO), topDocs.totalHits);
+    assertEquals(TotalHits.Relation.EQUAL_TO, topDocs.totalHits.relation);
+    assertEquals(11, topDocs.totalHits.value);
     // All docs must have the same score
     for (int i = 0; i < topDocs.scoreDocs.length; ++i) {
       assertEquals(topDocs.scoreDocs[0].score, topDocs.scoreDocs[i].score, 0.0f);

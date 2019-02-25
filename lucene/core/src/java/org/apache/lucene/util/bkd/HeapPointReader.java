@@ -16,28 +16,49 @@
  */
 package org.apache.lucene.util.bkd;
 
-import org.apache.lucene.util.BytesRef;
+import java.util.List;
 
-/**
- * Utility class to read buffered points from in-heap arrays.
+/** Utility class to read buffered points from in-heap arrays.
  *
- * @lucene.internal
- * */
-public final class HeapPointReader implements PointReader {
+ * @lucene.internal */
+public final class HeapPointReader extends PointReader {
   private int curRead;
-  final byte[] block;
+  final List<byte[]> blocks;
+  final int valuesPerBlock;
   final int packedBytesLength;
+  final long[] ordsLong;
+  final int[] ords;
   final int[] docIDs;
   final int end;
-  private final HeapPointValue pointValue;
+  final byte[] scratch;
+  final boolean singleValuePerDoc;
 
-  public HeapPointReader(byte[] block, int packedBytesLength, int[] docIDs, int start, int end) {
-    this.block = block;
+  public HeapPointReader(List<byte[]> blocks, int valuesPerBlock, int packedBytesLength, int[] ords, long[] ordsLong, int[] docIDs, int start, int end, boolean singleValuePerDoc) {
+    this.blocks = blocks;
+    this.valuesPerBlock = valuesPerBlock;
+    this.singleValuePerDoc = singleValuePerDoc;
+    this.ords = ords;
+    this.ordsLong = ordsLong;
     this.docIDs = docIDs;
     curRead = start-1;
     this.end = end;
     this.packedBytesLength = packedBytesLength;
-    this.pointValue = new HeapPointValue(block, packedBytesLength);
+    scratch = new byte[packedBytesLength];
+  }
+
+  void writePackedValue(int index, byte[] bytes) {
+    int block = index / valuesPerBlock;
+    int blockIndex = index % valuesPerBlock;
+    while (blocks.size() <= block) {
+      blocks.add(new byte[valuesPerBlock*packedBytesLength]);
+    }
+    System.arraycopy(bytes, 0, blocks.get(blockIndex), blockIndex * packedBytesLength, packedBytesLength);
+  }
+
+  void readPackedValue(int index, byte[] bytes) {
+    int block = index / valuesPerBlock;
+    int blockIndex = index % valuesPerBlock;
+    System.arraycopy(blocks.get(block), blockIndex * packedBytesLength, bytes, 0, packedBytesLength);
   }
 
   @Override
@@ -47,54 +68,28 @@ public final class HeapPointReader implements PointReader {
   }
 
   @Override
-  public PointValue pointValue() {
-    pointValue.setValue(curRead * packedBytesLength, docIDs[curRead]);
-    return pointValue;
+  public byte[] packedValue() {
+    readPackedValue(curRead, scratch);
+    return scratch;
+  }
+
+  @Override
+  public int docID() {
+    return docIDs[curRead];
+  }
+
+  @Override
+  public long ord() {
+    if (singleValuePerDoc) {
+      return docIDs[curRead];
+    } else if (ordsLong != null) {
+      return ordsLong[curRead];
+    } else {
+      return ords[curRead];
+    }
   }
 
   @Override
   public void close() {
-  }
-
-  /**
-   * Reusable implementation for a point value on-heap
-   */
-  static class HeapPointValue implements PointValue {
-
-    BytesRef packedValue;
-    BytesRef docIDBytes;
-    int docID;
-
-    public HeapPointValue(byte[] value, int packedLength) {
-      packedValue = new BytesRef(value, 0, packedLength);
-      docIDBytes = new BytesRef(new byte[4]);
-    }
-
-    /**
-     * Sets a new value by changing the offset and docID.
-     */
-    public void setValue(int offset, int docID) {
-      this.docID = docID;
-      packedValue.offset = offset;
-    }
-
-    @Override
-    public BytesRef packedValue() {
-      return packedValue;
-    }
-
-    @Override
-    public int docID() {
-      return docID;
-    }
-
-    @Override
-    public BytesRef docIDBytes() {
-      docIDBytes.bytes[0] = (byte) (docID >> 24);
-      docIDBytes.bytes[1] = (byte) (docID >> 16);
-      docIDBytes.bytes[2] = (byte) (docID >> 8);
-      docIDBytes.bytes[3] = (byte) (docID >> 0);
-      return docIDBytes;
-    }
   }
 }

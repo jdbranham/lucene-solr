@@ -1369,7 +1369,7 @@ public class CoreContainer {
   }
 
   /**
-   * Returns an immutable Map of Exceptions that occurred when initializing 
+   * Returns an immutable Map of Exceptions that occured when initializing 
    * SolrCores (either at startup, or do to runtime requests to create cores) 
    * keyed off of the name (String) of the SolrCore that had the Exception 
    * during initialization.
@@ -1867,9 +1867,8 @@ public class CoreContainer {
   }
 
   /**
-   * @param solrCore the core against which we check if there has been a tragic exception
-   * @return whether this Solr core has tragic exception
-   * @see org.apache.lucene.index.IndexWriter#getTragicException()
+   * @param solrCore te core against which we check if there has been a tragic exception
+   * @return whether this solr core has tragic exception
    */
   public boolean checkTragicException(SolrCore solrCore) {
     Throwable tragicException;
@@ -1880,8 +1879,10 @@ public class CoreContainer {
       tragicException = e;
     }
 
-    if (tragicException != null && isZooKeeperAware()) {
-      getZkController().giveupLeadership(solrCore.getCoreDescriptor(), tragicException);
+    if (tragicException != null) {
+      if (isZooKeeperAware()) {
+        getZkController().giveupLeadership(solrCore.getCoreDescriptor(), tragicException);
+      }
     }
     
     return tragicException != null;

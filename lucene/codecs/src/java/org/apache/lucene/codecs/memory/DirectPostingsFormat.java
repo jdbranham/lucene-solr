@@ -27,7 +27,6 @@ import org.apache.lucene.codecs.FieldsConsumer;
 import org.apache.lucene.codecs.FieldsProducer;
 import org.apache.lucene.codecs.PostingsFormat;
 import org.apache.lucene.codecs.lucene50.Lucene50PostingsFormat;
-import org.apache.lucene.index.BaseTermsEnum;
 import org.apache.lucene.index.FieldInfo;
 import org.apache.lucene.index.Fields;
 import org.apache.lucene.index.ImpactsEnum;
@@ -700,7 +699,7 @@ public final class DirectPostingsFormat extends PostingsFormat {
       return hasPayloads;
     }
 
-    private final class DirectTermsEnum extends BaseTermsEnum {
+    private final class DirectTermsEnum extends TermsEnum {
 
       private final BytesRef scratch = new BytesRef();
       private int termOrd;
@@ -945,7 +944,7 @@ public final class DirectPostingsFormat extends PostingsFormat {
       }
     }
 
-    private final class DirectIntersectTermsEnum extends BaseTermsEnum {
+    private final class DirectIntersectTermsEnum extends TermsEnum {
       private final RunAutomaton runAutomaton;
       private final CompiledAutomaton compiledAutomaton;
       private int termOrd;
@@ -1508,7 +1507,6 @@ public final class DirectPostingsFormat extends PostingsFormat {
       public void seekExact(long ord) {
         throw new UnsupportedOperationException();
       }
-      
     }
   }
 

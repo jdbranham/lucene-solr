@@ -23,7 +23,6 @@ import java.util.Map;
 
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.DocValuesProducer;
-import org.apache.lucene.index.BaseTermsEnum;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.index.DocValues;
@@ -927,7 +926,7 @@ final class Lucene80DocValuesProducer extends DocValuesProducer implements Close
     }
   }
 
-  private static class TermsDict extends BaseTermsEnum {
+  private static class TermsDict extends TermsEnum {
 
     final TermsDictEntry entry;
     final LongValues blockAddresses;

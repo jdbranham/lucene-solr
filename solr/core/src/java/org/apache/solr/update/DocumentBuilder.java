@@ -135,7 +135,7 @@ public class DocumentBuilder {
     // Load fields from SolrDocument to Document
     for( SolrInputField field : doc ) {
 
-      if (field.getFirstRawValue() instanceof SolrDocumentBase) {
+      if (field.getFirstValue() instanceof SolrDocumentBase) {
         if (ignoreNestedDocs) {
           continue;
         }
@@ -159,9 +159,7 @@ public class DocumentBuilder {
       // load each field value
       boolean hasField = false;
       try {
-        Iterator it = field.getRawIterator();
-        while (it.hasNext()) {
-          Object v = it.next();
+        for( Object v : field ) {
           if( v == null ) {
             continue;
           }
@@ -231,8 +229,8 @@ public class DocumentBuilder {
     // Now validate required fields or add default values
     // fields with default values are defacto 'required'
 
-    // Note: We don't need to add required fields if this document is to be used for
-    // in-place updates, since this validation and population of required fields would've happened
+    // Note: We don't need to add default fields if this document is to be used for
+    // in-place updates, since this validation and population of default fields would've happened
     // during the full indexing initially.
     if (!forInPlaceUpdate) {
       for (SchemaField field : schema.getRequiredFields()) {

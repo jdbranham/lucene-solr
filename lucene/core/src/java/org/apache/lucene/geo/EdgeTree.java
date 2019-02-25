@@ -22,7 +22,7 @@ import java.util.Comparator;
 import org.apache.lucene.index.PointValues.Relation;
 import org.apache.lucene.util.ArrayUtil;
 
-import static org.apache.lucene.geo.GeoUtils.lineRelateLine;
+import static org.apache.lucene.geo.GeoUtils.lineCrossesLine;
 import static org.apache.lucene.geo.GeoUtils.orient;
 
 /**
@@ -124,12 +124,12 @@ public abstract class EdgeTree {
     return Relation.CELL_OUTSIDE_QUERY;
   }
 
-  /** Returns relation to the provided rectangle for this component */
-  protected abstract Relation componentRelate(double minLat, double maxLat, double minLon, double maxLon);
-
-  /** Returns relation to the provided triangle for this component */
-  protected abstract Relation componentRelateTriangle(double ax, double ay, double bx, double by, double cx, double cy);
-
+  protected Relation componentRelate(double minLat, double maxLat, double minLon, double maxLon) {
+    return null;
+  }
+  protected Relation componentRelateTriangle(double ax, double ay, double bx, double by, double cx, double cy) {
+    return null;
+  }
 
   private Relation internalComponentRelateTriangle(double ax, double ay, double bx, double by, double cx, double cy) {
     // compute bounding box of triangle
@@ -140,7 +140,17 @@ public abstract class EdgeTree {
     if (maxLon < this.minLon || minLon > this.maxLon || maxLat < this.minLat || minLat > this.maxLat) {
       return Relation.CELL_OUTSIDE_QUERY;
     }
-    return componentRelateTriangle(ax, ay, bx, by, cx, cy);
+
+    Relation shapeRelation = componentRelateTriangle(ax, ay, bx, by, cx, cy);
+    if (shapeRelation != null) {
+      return shapeRelation;
+    }
+
+    // we cross
+    if (tree.crossesTriangle(ax, ay, bx, by, cx, cy)) {
+      return Relation.CELL_CROSSES_QUERY;
+    }
+    return Relation.CELL_OUTSIDE_QUERY;
   }
 
 
@@ -154,7 +164,18 @@ public abstract class EdgeTree {
     if (minLat <= this.minLat && maxLat >= this.maxLat && minLon <= this.minLon && maxLon >= this.maxLon) {
       return Relation.CELL_CROSSES_QUERY;
     }
-    return componentRelate(minLat, maxLat, minLon, maxLon);
+
+    Relation shapeRelation = componentRelate(minLat, maxLat, minLon, maxLon);
+    if (shapeRelation != null) {
+      return shapeRelation;
+    }
+
+    // we cross
+    if (tree.crosses(minLat, maxLat, minLon, maxLon)) {
+      return Relation.CELL_CROSSES_QUERY;
+    }
+
+    return Relation.CELL_OUTSIDE_QUERY;
   }
 
   /** Creates tree from sorted components (with range low and high inclusive) */
@@ -231,14 +252,13 @@ public abstract class EdgeTree {
     }
 
     /** Returns true if the triangle crosses any edge in this edge subtree */
-    Relation relateTriangle(double ax, double ay, double bx, double by, double cx, double cy) {
+    boolean crossesTriangle(double ax, double ay, double bx, double by, double cx, double cy) {
       // compute bounding box of triangle
       double minLat = StrictMath.min(StrictMath.min(ay, by), cy);
       double minLon = StrictMath.min(StrictMath.min(ax, bx), cx);
       double maxLat = StrictMath.max(StrictMath.max(ay, by), cy);
       double maxLon = StrictMath.max(StrictMath.max(ax, bx), cx);
 
-      Relation r = Relation.CELL_OUTSIDE_QUERY;
       if (minLat <= max) {
         double dy = lat1;
         double ey = lat2;
@@ -253,52 +273,38 @@ public abstract class EdgeTree {
             (dx > maxLon && ex > maxLon);
 
         if (outside == false) {
-          int insideEdges = 0;
           // does triangle's first edge intersect polyline?
           // ax, ay -> bx, by
-          if ((r = lineRelateLine(ax, ay, bx, by, dx, dy, ex, ey)) == Relation.CELL_CROSSES_QUERY) {
-            return r;
-          } else if (r == Relation.CELL_INSIDE_QUERY) {
-            ++insideEdges;
+          if (lineCrossesLine(ax, ay, bx, by, dx, dy, ex, ey)) {
+            return true;
           }
 
           // does triangle's second edge intersect polyline?
           // bx, by -> cx, cy
-          if ((r = lineRelateLine(bx, by, cx, cy, dx, dy, ex, ey)) == Relation.CELL_CROSSES_QUERY) {
-            return r;
-          } else if (r == Relation.CELL_INSIDE_QUERY) {
-            ++insideEdges;
+          if (lineCrossesLine(bx, by, cx, cy, dx, dy, ex, ey)) {
+            return true;
           }
 
           // does triangle's third edge intersect polyline?
           // cx, cy -> ax, ay
-          if ((r = lineRelateLine(cx, cy, ax, ay, dx, dy, ex, ey)) == Relation.CELL_CROSSES_QUERY) {
-            return r;
-          } else if (r == Relation.CELL_INSIDE_QUERY) {
-            ++insideEdges;
-          }
-          if (insideEdges == 3) {
-            // fully inside, we can return
-            return Relation.CELL_INSIDE_QUERY;
-          } else {
-            //reset relation to not crossing
-            r =  Relation.CELL_OUTSIDE_QUERY;
+          if (lineCrossesLine(cx, cy, ax, ay, dx, dy, ex, ey)) {
+            return true;
           }
         }
 
         if (left != null) {
-          if ((r = left.relateTriangle(ax, ay, bx, by, cx, cy)) != Relation.CELL_OUTSIDE_QUERY) {
-            return r;
+          if (left.crossesTriangle(ax, ay, bx, by, cx, cy)) {
+            return true;
           }
         }
 
         if (right != null && maxLat >= low) {
-          if ((r = right.relateTriangle(ax, ay, bx, by, cx, cy)) != Relation.CELL_OUTSIDE_QUERY) {
-            return r;
+          if (right.crossesTriangle(ax, ay, bx, by, cx, cy)) {
+            return true;
           }
         }
       }
-      return r;
+      return false;
     }
 
     /** Returns true if the box crosses any edge in this edge subtree */
@@ -369,29 +375,6 @@ public abstract class EdgeTree {
           }
         }
       }
-      return false;
-    }
-  }
-
-  //This should be moved when LatLonShape is moved from sandbox!
-  /**
-   * Compute whether the given x, y point is in a triangle; uses the winding order method */
-  protected static boolean pointInTriangle (double x, double y, double ax, double ay, double bx, double by, double cx, double cy) {
-    double minX = StrictMath.min(ax, StrictMath.min(bx, cx));
-    double minY = StrictMath.min(ay, StrictMath.min(by, cy));
-    double maxX = StrictMath.max(ax, StrictMath.max(bx, cx));
-    double maxY = StrictMath.max(ay, StrictMath.max(by, cy));
-    //check the bounding box because if the triangle is degenerated, e.g points and lines, we need to filter out
-    //coplanar points that are not part of the triangle.
-    if (x >= minX && x <= maxX && y >= minY && y <= maxY ) {
-      int a = orient(x, y, ax, ay, bx, by);
-      int b = orient(x, y, bx, by, cx, cy);
-      if (a == 0 || b == 0 || a < 0 == b < 0) {
-        int c = orient(x, y, cx, cy, ax, ay);
-        return c == 0 || (c < 0 == (b < 0 || a < 0));
-      }
-      return false;
-    } else {
       return false;
     }
   }
