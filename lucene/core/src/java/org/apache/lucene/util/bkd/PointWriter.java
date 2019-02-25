@@ -20,6 +20,8 @@ package org.apache.lucene.util.bkd;
 import java.io.Closeable;
 import java.io.IOException;
 
+import org.apache.lucene.util.BytesRef;
+
 /** Appends many points, and then at the end provides a {@link PointReader} to iterate
  *  those points.  This abstracts away whether we write to disk, or use simple arrays
  *  in heap.
@@ -27,12 +29,11 @@ import java.io.IOException;
  *  @lucene.internal
  *  */
 public interface PointWriter extends Closeable {
-
-  /** Add a new point from the packed value and docId */
+  /** Add a new point from byte array*/
   void append(byte[] packedValue, int docID) throws IOException;
 
-  /** Add a new point from a {@link PointValue} */
-  void append(PointValue pointValue) throws IOException;
+  /** Add a new point from byteRef */
+  void append(BytesRef packedValue, int docID) throws IOException;
 
   /** Returns a {@link PointReader} iterator to step through all previously added points */
   PointReader getReader(long startPoint, long length) throws IOException;
