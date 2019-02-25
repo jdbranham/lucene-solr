@@ -19,8 +19,8 @@ package org.apache.lucene.classification;
 
 
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
-import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -28,10 +28,8 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 import com.carrotsearch.randomizedtesting.annotations.TimeoutSuite;
@@ -67,8 +65,6 @@ import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.LuceneTestCase;
-import org.apache.lucene.util.NamedThreadFactory;
-import org.apache.lucene.util.TestUtil;
 import org.apache.lucene.util.TimeUnits;
 import org.junit.Test;
 
@@ -136,15 +132,15 @@ public final class Test20NewsgroupsClassification extends LuceneTestCase {
       Analyzer analyzer = new StandardAnalyzer();
       if (index) {
 
-        System.out.println("Indexing 20 Newsgroups...");
+        System.out.format("Indexing 20 Newsgroups...%n");
 
         long startIndex = System.currentTimeMillis();
         IndexWriter indexWriter = new IndexWriter(directory, new IndexWriterConfig(analyzer));
 
-        int docsIndexed = buildIndex(Paths.get(PATH_TO_20N).getParent(), indexWriter);
+        int docsIndexed = buildIndex(new File(PATH_TO_20N), indexWriter);
 
         long endIndex = System.currentTimeMillis();
-        System.out.println("Indexed " + docsIndexed + " docs in " + (endIndex - startIndex) / 1000 + "s");
+        System.out.format("Indexed %d pages in %ds %n", docsIndexed, (endIndex - startIndex) / 1000);
 
         indexWriter.close();
 
@@ -158,7 +154,7 @@ public final class Test20NewsgroupsClassification extends LuceneTestCase {
 
       if (index && split) {
         // split the index
-        System.out.println("Splitting the index...");
+        System.out.format("Splitting the index...%n");
 
         long startSplit = System.currentTimeMillis();
         DatasetSplitter datasetSplitter = new DatasetSplitter(0.2, 0);
@@ -166,8 +162,11 @@ public final class Test20NewsgroupsClassification extends LuceneTestCase {
         reader.close();
         reader = DirectoryReader.open(train); // using the train index from now on
         long endSplit = System.currentTimeMillis();
-        System.out.println("Splitting done in " + (endSplit - startSplit) / 1000 + "s");
+        System.out.format("Splitting done in %ds %n", (endSplit - startSplit) / 1000);
       }
+
+      final long startTime = System.currentTimeMillis();
+
 
       classifiers.add(new KNearestNeighborClassifier(reader, new ClassicSimilarity(), analyzer, null, 1, 0, 0, CATEGORY_FIELD, BODY_FIELD));
       classifiers.add(new KNearestNeighborClassifier(reader, null, analyzer, null, 1, 0, 0, CATEGORY_FIELD, BODY_FIELD));
@@ -201,14 +200,12 @@ public final class Test20NewsgroupsClassification extends LuceneTestCase {
         maxdoc = reader.maxDoc();
       }
 
-      System.out.println("Starting evaluation on " + maxdoc + " docs...");
+      System.out.format("Starting evaluation on %d docs...%n", maxdoc);
 
-      ExecutorService service = new ThreadPoolExecutor(1, TestUtil.nextInt(random(), 2, 6), Long.MAX_VALUE, TimeUnit.MILLISECONDS,
-          new LinkedBlockingQueue<>(),
-          new NamedThreadFactory(getClass().getName()));
+      ExecutorService service = Executors.newCachedThreadPool();
       List<Future<String>> futures = new LinkedList<>();
       for (Classifier<BytesRef> classifier : classifiers) {
-        testClassifier(reader, testReader, service, futures, classifier);
+        testClassifier(reader, startTime, testReader, service, futures, classifier);
       }
       for (Future<String> f : futures) {
         System.out.println(f.get());
@@ -235,7 +232,7 @@ public final class Test20NewsgroupsClassification extends LuceneTestCase {
         testReader.close();
       }
 
-      for (Classifier<BytesRef> c : classifiers) {
+      for (Classifier c : classifiers) {
         if (c instanceof Closeable) {
           ((Closeable) c).close();
         }
@@ -243,15 +240,15 @@ public final class Test20NewsgroupsClassification extends LuceneTestCase {
     }
   }
 
-  private void testClassifier(final IndexReader ar, IndexReader testReader, ExecutorService service, List<Future<String>> futures, Classifier<BytesRef> classifier) {
+  private void testClassifier(final IndexReader ar, long startTime, IndexReader testReader, ExecutorService service, List<Future<String>> futures, Classifier<BytesRef> classifier) {
     futures.add(service.submit(() -> {
-      final long startTime = System.currentTimeMillis();
       ConfusionMatrixGenerator.ConfusionMatrix confusionMatrix;
       if (split) {
         confusionMatrix = ConfusionMatrixGenerator.getConfusionMatrix(testReader, classifier, CATEGORY_FIELD, BODY_FIELD, 60000 * 30);
       } else {
         confusionMatrix = ConfusionMatrixGenerator.getConfusionMatrix(ar, classifier, CATEGORY_FIELD, BODY_FIELD, 60000 * 30);
       }
+
       final long endTime = System.currentTimeMillis();
       final int elapse = (int) (endTime - startTime) / 1000;
 
@@ -277,30 +274,31 @@ public final class Test20NewsgroupsClassification extends LuceneTestCase {
 
   }
 
-  private int buildIndex(Path indexDir, IndexWriter indexWriter)
+
+  int buildIndex(File indexDir, IndexWriter indexWriter)
       throws IOException {
+    File[] groupsDir = indexDir.listFiles();
     int i = 0;
-    try (DirectoryStream<Path> groupsStream = Files.newDirectoryStream(indexDir)) {
-      for (Path groupsDir : groupsStream) {
-        if (!Files.isHidden(groupsDir)) {
-          try (DirectoryStream<Path> stream = Files.newDirectoryStream(groupsDir)) {
-            for (Path p : stream) {
-              if (!Files.isHidden(p)) {
-                NewsPost post = parse(p, p.getParent().getFileName().toString(), p.getFileName().toString());
-                if (post != null) {
-                  Document d = new Document();
-                  d.add(new StringField(CATEGORY_FIELD,
-                      post.getGroup(), Field.Store.YES));
-                  d.add(new SortedDocValuesField(CATEGORY_FIELD,
-                      new BytesRef(post.getGroup())));
-                  d.add(new TextField(SUBJECT_FIELD,
-                      post.getSubject(), Field.Store.YES));
-                  d.add(new TextField(BODY_FIELD,
-                      post.getBody(), Field.Store.YES));
-                  indexWriter.addDocument(d);
-                  i++;
-                }
-              }
+    if (groupsDir != null) {
+      for (File group : groupsDir) {
+        String groupName = group.getName();
+        File[] posts = group.listFiles();
+        if (posts != null) {
+          for (File postFile : posts) {
+            String number = postFile.getName();
+            NewsPost post = parse(postFile, groupName, number);
+            if (post != null) {
+              Document d = new Document();
+              d.add(new StringField(CATEGORY_FIELD,
+                  post.getGroup(), Field.Store.YES));
+              d.add(new SortedDocValuesField(CATEGORY_FIELD,
+                  new BytesRef(post.getGroup())));
+              d.add(new TextField(SUBJECT_FIELD,
+                  post.getSubject(), Field.Store.YES));
+              d.add(new TextField(BODY_FIELD,
+                  post.getBody(), Field.Store.YES));
+              indexWriter.addDocument(d);
+              i++;
             }
           }
         }
@@ -310,10 +308,11 @@ public final class Test20NewsgroupsClassification extends LuceneTestCase {
     return i;
   }
 
-  private NewsPost parse(Path path, String groupName, String number) {
+  private NewsPost parse(File postFile, String groupName, String number) throws IOException {
     StringBuilder body = new StringBuilder();
     String subject = "";
     boolean inBody = false;
+    Path path = postFile.toPath();
     try {
       if (Files.isReadable(path)) {
         for (String line : Files.readAllLines(path)) {
