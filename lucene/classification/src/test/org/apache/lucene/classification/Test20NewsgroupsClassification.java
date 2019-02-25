@@ -24,6 +24,7 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -31,6 +32,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import com.carrotsearch.randomizedtesting.annotations.TimeoutSuite;
 import org.apache.lucene.analysis.Analyzer;
@@ -62,6 +64,7 @@ import org.apache.lucene.search.similarities.LambdaTTF;
 import org.apache.lucene.search.similarities.Normalization;
 import org.apache.lucene.search.similarities.NormalizationH1;
 import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.BytesRef;
 import org.apache.lucene.util.LuceneTestCase;
 import org.apache.lucene.util.NamedThreadFactory;
@@ -74,10 +77,12 @@ import org.junit.Test;
 @LuceneTestCase.Monster("takes a lot!")
 public final class Test20NewsgroupsClassification extends LuceneTestCase {
 
+  private static final String PATH_TO_20N = "/path/to/20n/";
+  private static final String INDEX = PATH_TO_20N + "index";
+
   private static final String CATEGORY_FIELD = "category";
   private static final String BODY_FIELD = "body";
   private static final String SUBJECT_FIELD = "subject";
-  private static final String INDEX_DIR = "/path/to/lucene-solr/lucene/classification/20n";
 
   private static boolean index = true;
   private static boolean split = true;
@@ -103,15 +108,26 @@ public final class Test20NewsgroupsClassification extends LuceneTestCase {
       }
     }
 
-    Directory directory = newDirectory();
-    Directory cv = null;
-    Directory test = null;
-    Directory train = null;
+    Path mainIndexPath = Paths.get(INDEX + "/original");
+    Directory directory = FSDirectory.open(mainIndexPath);
+    Path trainPath = Paths.get(INDEX + "/train");
+    Path testPath = Paths.get(INDEX + "/test");
+    Path cvPath = Paths.get(INDEX + "/cv");
+    FSDirectory cv = null;
+    FSDirectory test = null;
+    FSDirectory train = null;
     IndexReader testReader = null;
     if (split) {
-      cv = newDirectory();
-      test = newDirectory();
-      train = newDirectory();
+      cv = FSDirectory.open(cvPath);
+      test = FSDirectory.open(testPath);
+      train = FSDirectory.open(trainPath);
+    }
+
+    if (index) {
+      delete(mainIndexPath);
+      if (split) {
+        delete(trainPath, testPath, cvPath);
+      }
     }
 
     IndexReader reader = null;
@@ -125,8 +141,7 @@ public final class Test20NewsgroupsClassification extends LuceneTestCase {
         long startIndex = System.currentTimeMillis();
         IndexWriter indexWriter = new IndexWriter(directory, new IndexWriterConfig(analyzer));
 
-        Path indexDir = Paths.get(INDEX_DIR);
-        int docsIndexed = buildIndex(indexDir, indexWriter);
+        int docsIndexed = buildIndex(Paths.get(PATH_TO_20N).getParent(), indexWriter);
 
         long endIndex = System.currentTimeMillis();
         System.out.println("Indexed " + docsIndexed + " docs in " + (endIndex - startIndex) / 1000 + "s");
@@ -142,6 +157,7 @@ public final class Test20NewsgroupsClassification extends LuceneTestCase {
       }
 
       if (index && split) {
+        // split the index
         System.out.println("Splitting the index...");
 
         long startSplit = System.currentTimeMillis();
@@ -206,9 +222,6 @@ public final class Test20NewsgroupsClassification extends LuceneTestCase {
         reader.close();
       }
       directory.close();
-      if (testReader != null) {
-        testReader.close();
-      }
       if (test != null) {
         test.close();
       }
@@ -217,6 +230,9 @@ public final class Test20NewsgroupsClassification extends LuceneTestCase {
       }
       if (cv != null) {
         cv.close();
+      }
+      if (testReader != null) {
+        testReader.close();
       }
 
       for (Classifier<BytesRef> c : classifiers) {
@@ -246,6 +262,19 @@ public final class Test20NewsgroupsClassification extends LuceneTestCase {
           "\n    * avgClassificationTime = " + confusionMatrix.getAvgClassificationTime() +
           "\n    * time = " + elapse + " (sec)\n ";
     }));
+  }
+
+  private void delete(Path... paths) throws IOException {
+    for (Path path : paths) {
+      if (Files.isDirectory(path)) {
+        Stream<Path> pathStream = Files.list(path);
+        Iterator<Path> iterator = pathStream.iterator();
+        while (iterator.hasNext()) {
+          Files.delete(iterator.next());
+        }
+      }
+    }
+
   }
 
   private int buildIndex(Path indexDir, IndexWriter indexWriter)
