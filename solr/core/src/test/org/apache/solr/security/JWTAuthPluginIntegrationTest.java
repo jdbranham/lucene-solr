@@ -129,8 +129,10 @@ public class JWTAuthPluginIntegrationTest extends SolrCloudAuthTestCase {
   public void testMetrics() throws Exception {
     boolean isUseV2Api = random().nextBoolean();
     String authcPrefix = "/admin/authentication";
+    String authzPrefix = "/admin/authorization";
     if(isUseV2Api){
       authcPrefix = "/____v2/cluster/security/authentication";
+      authzPrefix = "/____v2/cluster/security/authorization";
     }
     String baseUrl = cluster.getRandomJetty(random()).getBaseUrl().toString();
     CloseableHttpClient cl = HttpClientUtil.createClient(null);
@@ -191,11 +193,11 @@ public class JWTAuthPluginIntegrationTest extends SolrCloudAuthTestCase {
     assertPkiAuthMetricsMinimums(15, 15, 0, 0, 0, 0);
   }
 
-  private void getAndFail(String url, String token) {
+  private void getAndFail(String url, String token) throws IOException {
     try {
       get(url, token);
       fail("Request to " + url + " with token " + token + " should have failed");
-    } catch(Exception e) { /* Fall through */ }
+    } catch(Exception e) {}
   }
   
   private Pair<String, Integer> get(String url, String token) throws IOException {
