@@ -102,8 +102,6 @@ public final class BlockTreeTermsReader extends FieldsProducer {
 
   // Open input to the main terms dict file (_X.tib)
   final IndexInput termsIn;
-  // Open input to the terms index file (_X.tip)
-  final IndexInput indexIn;
 
   //private static final boolean DEBUG = BlockTreeTermsWriter.DEBUG;
 
@@ -120,6 +118,7 @@ public final class BlockTreeTermsReader extends FieldsProducer {
   /** Sole constructor. */
   public BlockTreeTermsReader(PostingsReaderBase postingsReader, SegmentReadState state) throws IOException {
     boolean success = false;
+    IndexInput indexIn = null;
     
     this.postingsReader = postingsReader;
     this.segment = state.segmentInfo.name;
@@ -198,11 +197,13 @@ public final class BlockTreeTermsReader extends FieldsProducer {
           throw new CorruptIndexException("duplicate field: " + fieldInfo.name, termsIn);
         }
       }
+      
+      indexIn.close();
       success = true;
     } finally {
       if (!success) {
         // this.close() will close in:
-        IOUtils.closeWhileHandlingException(this);
+        IOUtils.closeWhileHandlingException(indexIn, this);
       }
     }
   }
@@ -236,7 +237,7 @@ public final class BlockTreeTermsReader extends FieldsProducer {
   @Override
   public void close() throws IOException {
     try {
-      IOUtils.close(indexIn, termsIn, postingsReader);
+      IOUtils.close(termsIn, postingsReader);
     } finally { 
       // Clear so refs to terms index is GCable even if
       // app hangs onto us:
