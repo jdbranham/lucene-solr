@@ -52,7 +52,6 @@ import org.apache.solr.common.cloud.Replica;
 import org.apache.solr.common.cloud.Slice;
 import org.apache.solr.common.cloud.SolrZkClient;
 import org.apache.solr.common.cloud.ZkStateReader;
-import org.apache.solr.common.params.CollectionAdminParams;
 import org.apache.solr.common.util.NamedList;
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -105,7 +104,7 @@ public class SolrCloudTestCase extends SolrTestCaseJ4 {
     private Optional<String> securityJson = Optional.empty();
 
     private List<Config> configs = new ArrayList<>();
-    private Map<String, Object> clusterProperties = new HashMap<>();
+    private Map<String, String> clusterProperties = new HashMap<>();
 
     /**
      * Create a builder
@@ -212,27 +211,13 @@ public class SolrCloudTestCase extends SolrTestCaseJ4 {
 
       if (clusterProperties.size() > 0) {
         ClusterProperties props = new ClusterProperties(cluster.getSolrClient().getZkStateReader().getZkClient());
-        for (Map.Entry<String, Object> entry : clusterProperties.entrySet()) {
+        for (Map.Entry<String, String> entry : clusterProperties.entrySet()) {
           props.setClusterProperty(entry.getKey(), entry.getValue());
         }
       }
       return cluster;
     }
 
-    public Builder withDefaultClusterProperty(String key, String value) {
-      HashMap<String,Object> defaults = (HashMap<String, Object>) this.clusterProperties.get(CollectionAdminParams.DEFAULTS);
-      if (defaults == null) {
-        defaults = new HashMap<>();
-        this.clusterProperties.put(CollectionAdminParams.DEFAULTS, defaults);
-      }
-      HashMap<String,Object> cluster = (HashMap<String, Object>) defaults.get(CollectionAdminParams.CLUSTER);
-      if (cluster == null) {
-        cluster = new HashMap<>();
-        defaults.put(CollectionAdminParams.CLUSTER, cluster);
-      }
-      cluster.put(key, value);
-      return this;
-    }
   }
 
   /** The cluster */

@@ -278,12 +278,12 @@ public class Assign {
   }
 
   private static boolean usePolicyFramework(Optional<DocCollection> collection, SolrCloudManager cloudManager) throws IOException, InterruptedException {
-    boolean useLegacyAssignment = true;
+    boolean useLegacyAssignment = false;
     Map<String, Object> clusterProperties = cloudManager.getClusterStateProvider().getClusterProperties();
     if (clusterProperties.containsKey(CollectionAdminParams.DEFAULTS))  {
       Map<String, Object> defaults = (Map<String, Object>) clusterProperties.get(CollectionAdminParams.DEFAULTS);
       Map<String, Object> collectionDefaults = (Map<String, Object>) defaults.getOrDefault(CollectionAdminParams.CLUSTER, Collections.emptyMap());
-      useLegacyAssignment = Boolean.parseBoolean(collectionDefaults.getOrDefault(CollectionAdminParams.USE_LEGACY_REPLICA_ASSIGNMENT, "true").toString());
+      useLegacyAssignment = (boolean) collectionDefaults.getOrDefault(CollectionAdminParams.USE_LEGACY_REPLICA_ASSIGNMENT, false);
     }
 
     if (!useLegacyAssignment) {
