@@ -1333,7 +1333,7 @@ public class MemoryIndex {
       }
     }
 
-    private class MemoryTermsEnum extends BaseTermsEnum {
+    private class MemoryTermsEnum extends TermsEnum {
       private final Info info;
       private final BytesRef br = new BytesRef();
       int termUpto = -1;

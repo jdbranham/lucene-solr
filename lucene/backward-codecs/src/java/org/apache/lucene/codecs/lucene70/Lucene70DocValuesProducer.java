@@ -23,7 +23,6 @@ import java.util.Map;
 
 import org.apache.lucene.codecs.CodecUtil;
 import org.apache.lucene.codecs.DocValuesProducer;
-import org.apache.lucene.index.BaseTermsEnum;
 import org.apache.lucene.index.BinaryDocValues;
 import org.apache.lucene.index.CorruptIndexException;
 import org.apache.lucene.index.DocValues;
@@ -985,7 +984,7 @@ final class Lucene70DocValuesProducer extends DocValuesProducer implements Close
     }
   }
 
-  private static class TermsDict extends BaseTermsEnum {
+  private static class TermsDict extends TermsEnum {
 
     final TermsDictEntry entry;
     final LongValues blockAddresses;
@@ -1032,6 +1031,11 @@ final class Lucene70DocValuesProducer extends DocValuesProducer implements Close
       return term;
     }
 
+    @Override
+    public boolean seekExact(BytesRef text) throws IOException {
+      return seekCeil(text) == SeekStatus.FOUND;
+    }
+    
     @Override
     public void seekExact(long ord) throws IOException {
       if (ord < 0 || ord >= entry.termsDictSize) {

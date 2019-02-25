@@ -259,7 +259,7 @@ public class FSTTermsReader extends FieldsProducer {
     }
 
     // Only wraps common operations for PBF interact
-    abstract class BaseTermsEnum extends org.apache.lucene.index.BaseTermsEnum {
+    abstract class BaseTermsEnum extends TermsEnum {
 
       /* Current term stats + decoded metadata (customized by PBF) */
       final BlockTermState state;
@@ -519,6 +519,11 @@ public class FSTTermsReader extends FieldsProducer {
         state.totalTermFreq = meta.totalTermFreq;
       }
 
+      @Override
+      public boolean seekExact(BytesRef text) throws IOException {
+        return seekCeil(text) == SeekStatus.FOUND;
+      }
+      
       @Override
       public SeekStatus seekCeil(BytesRef target) throws IOException {
         decoded = false;
