@@ -443,11 +443,6 @@ public final class RAMOnlyPostingsFormat extends PostingsFormat {
         }
       }
     }
-    
-    @Override
-    public boolean seekExact(BytesRef text) throws IOException {
-      return seekCeil(text) == SeekStatus.FOUND;
-    }    
 
     @Override
     public void seekExact(long ord) {
